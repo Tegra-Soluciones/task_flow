@@ -1,0 +1,12 @@
+import frappe
+
+no_cache = 1
+
+
+def get_context(context):
+	if frappe.session.user == "Guest":
+		frappe.local.flags.redirect_location = f"/login?redirect-to=/task_flow"
+		raise frappe.Redirect
+
+	context.no_header = 1
+	context.no_breadcrumbs = 1

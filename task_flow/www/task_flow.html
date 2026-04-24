@@ -1,0 +1,30 @@
+---
+title: Task Flow
+no_cache: 1
+---
+{%- block navbar -%}{%- endblock -%}
+{%- block header -%}{%- endblock -%}
+
+{%- block content -%}
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task Flow</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/task_flow/images/logo.svg" />
+    <link rel="stylesheet" href="/assets/task_flow/task_flow/style.css" />
+  </head>
+  <body>
+    <script>
+      window.csrf_token = "{{ frappe.session.csrf_token }}";
+      window.frappe_version = "{{ frappe.__version__ }}";
+      window.site_name = "{{ frappe.local.site }}";
+    </script>
+    <div id="app"></div>
+    <script type="module" src="/assets/task_flow/task_flow/main.js"></script>
+  </body>
+</html>
+{%- endblock -%}
+
+{%- block footer -%}{%- endblock -%}
