@@ -10,6 +10,7 @@ export const TASK_FIELDS = [
 	"name", "subject", "status", "priority", "project",
 	"exp_start_date", "exp_end_date", "progress", "color",
 	"_assign", "cover_image", "watchers", "depends_on_tasks",
+	"modified",
 ];
 
 export const TASK_STATUSES = [

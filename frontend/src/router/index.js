@@ -7,7 +7,13 @@ const routes = [
 		path: "/",
 		component: AppLayout,
 		children: [
-			{ path: "", redirect: "/dashboard" },
+			{ path: "", redirect: "/home" },
+			{
+				path: "home",
+				name: "Home",
+				component: () => import("../pages/Home.vue"),
+				meta: { title: "Inicio" },
+			},
 			{
 				path: "dashboard",
 				name: "Dashboard",

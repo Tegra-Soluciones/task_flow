@@ -28,45 +28,56 @@
         class="status-group"
         v-show="group.tasks.length > 0 || !hideEmptyGroups"
       >
-        <div class="group-header">
+        <button
+          class="group-header"
+          type="button"
+          @click="toggleGroup(group.status)"
+        >
+          <ChevronRightIcon
+            class="group-chevron"
+            :class="{ open: !collapsedGroups[group.status] }"
+            :size="14"
+          />
           <span class="group-dot" :style="{ background: STATUS_COLOR[group.status] }" />
           <span class="group-label">{{ STATUS_LABEL[group.status] || group.status }}</span>
           <span class="group-count">{{ group.tasks.length }}</span>
-        </div>
+        </button>
 
-        <div v-for="projectGroup in group.projectGroups" :key="projectGroup.key" class="project-section">
-          <div v-if="prefs.groupByProject" class="project-header">
-            <span class="project-name">{{ projectGroup.label }}</span>
-            <span class="project-count">{{ projectGroup.tasks.length }}</span>
-          </div>
-
-          <VueDraggable
-            v-model="projectGroup.tasks"
-            group="tasks"
-            class="task-grid"
-            item-key="name"
-            ghost-class="drag-ghost"
-            chosen-class="drag-chosen"
-            @add="(evt) => onDrop(evt, group.status)"
-          >
-            <div
-              v-for="task in projectGroup.tasks"
-              :key="task.name"
-              class="card-wrapper"
-            >
-              <TaskCard
-                :task="task"
-                :assignee-users="getAssigneeUsers(task)"
-                :compact="prefs.compactCards"
-                :due-soon-days="prefs.dueSoonDays"
-                :quick-actions="true"
-                @click="goToTask(task.name)"
-                @complete="quickComplete(task)"
-                @whatsapp="quickWhatsApp(task)"
-                @email="quickEmail(task)"
-              />
+        <div v-show="!collapsedGroups[group.status]" class="group-body">
+          <div v-for="projectGroup in group.projectGroups" :key="projectGroup.key" class="project-section">
+            <div v-if="prefs.groupByProject" class="project-header">
+              <span class="project-name">{{ projectGroup.label }}</span>
+              <span class="project-count">{{ projectGroup.tasks.length }}</span>
             </div>
-          </VueDraggable>
+
+            <VueDraggable
+              v-model="projectGroup.tasks"
+              group="tasks"
+              class="task-grid"
+              item-key="name"
+              ghost-class="drag-ghost"
+              chosen-class="drag-chosen"
+              @add="(evt) => onDrop(evt, group.status)"
+            >
+              <div
+                v-for="task in projectGroup.tasks"
+                :key="task.name"
+                class="card-wrapper"
+              >
+                <TaskCard
+                  :task="task"
+                  :assignee-users="getAssigneeUsers(task)"
+                  :compact="prefs.compactCards"
+                  :due-soon-days="prefs.dueSoonDays"
+                  :quick-actions="true"
+                  @click="goToTask(task.name)"
+                  @complete="quickComplete(task)"
+                  @whatsapp="quickWhatsApp(task)"
+                  @email="quickEmail(task)"
+                />
+              </div>
+            </VueDraggable>
+          </div>
         </div>
       </div>
     </div>
@@ -76,6 +87,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { ChevronRightIcon } from "lucide-vue-next";
 import { VueDraggable } from "vue-draggable-plus";
 import FilterBar from "../components/shared/FilterBar.vue";
 import NewTaskModal from "../components/shared/NewTaskModal.vue";
@@ -98,6 +110,14 @@ const loading         = ref(true);
 const showNewTask     = ref(false);
 const hideEmptyGroups = ref(true);
 const userCache       = ref({});
+const collapsedGroups = ref({});
+
+function toggleGroup(status) {
+  collapsedGroups.value = {
+    ...collapsedGroups.value,
+    [status]: !collapsedGroups.value[status],
+  };
+}
 
 const BASE_STATUSES = ["Open", "Working", "Pending Review", "Overdue", "Completed"];
 
@@ -269,14 +289,37 @@ async function onTaskCreated(task) {
 .group-header {
   display: flex; align-items: center; gap: 8px;
   margin-bottom: 12px;
+  padding: 6px 8px;
+  margin-left: -8px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: fit-content;
+  font-family: inherit;
+  text-align: left;
+  transition: background 120ms;
+}
+.group-header:hover { background: var(--tf-hover-bg); }
+.group-chevron {
+  color: var(--tf-text-muted);
+  flex-shrink: 0;
+  transition: transform 200ms;
+}
+.group-chevron.open { transform: rotate(90deg); }
+.group-body { animation: groupReveal 180ms ease-out; }
+@keyframes groupReveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .group-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .group-label { font-size: 13px; font-weight: 600; color: var(--tf-text); }
 .group-count {
-  font-size: 11px; padding: 1px 6px;
+  font-size: 11px; padding: 1px 7px;
   background: var(--tf-hover-bg);
   color: var(--tf-text-muted);
   border-radius: 999px;
+  font-weight: 600;
 }
 
 .project-section {

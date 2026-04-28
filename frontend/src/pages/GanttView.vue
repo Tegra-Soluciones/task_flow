@@ -20,7 +20,7 @@
     </div>
 
     <!-- ── Unassigned tasks panel ─────────────────────────────────────────── -->
-    <div v-if="!loading" class="unassigned-panel">
+    <div v-if="!loading" class="unassigned-panel" :class="{ collapsed: !showUnassigned }">
       <button class="unassigned-toggle" @click="showUnassigned = !showUnassigned">
         <ChevronRightIcon
           class="toggle-chevron"
@@ -29,41 +29,42 @@
         />
         <span class="toggle-label">Sin asignar</span>
         <span class="unassigned-badge">{{ unassignedTasks.length }}</span>
-        <span class="toggle-hint">{{ showUnassigned ? 'Ocultar' : 'Mostrar' }}</span>
+        <span class="toggle-hint">
+          {{ showUnassigned ? 'Arrastra una tarjeta a la fila de un usuario para asignar' : 'Mostrar' }}
+        </span>
       </button>
 
-      <div v-if="showUnassigned" class="unassigned-list">
+      <div v-if="showUnassigned" class="unassigned-strip">
         <div v-if="!unassignedTasks.length" class="unassigned-empty">
           No hay tareas sin asignar.
         </div>
         <div
           v-for="task in unassignedTasks"
           :key="task.name"
-          class="unassigned-row"
+          class="u-card"
+          :class="[`p-${(task.priority || 'medium').toLowerCase()}`, { dragging: dragging?.task?.name === task.name }]"
+          draggable="true"
+          @dragstart="onDragStart($event, task, panelRow)"
+          @dragend="dropTarget = null; dragging = null"
+          @click="goToTask(task.name)"
         >
-          <span
-            class="u-priority-dot"
-            :style="{ background: PRIORITY_BAR_COLOR[task.priority] || 'var(--tf-primary)' }"
-          />
-          <button class="u-name" @click="goToTask(task.name)">{{ task.subject }}</button>
-          <span class="u-dates">
-            {{ task.exp_start_date ? fmtDate(task.exp_start_date) : '—' }}
-            <template v-if="task.exp_end_date"> → {{ fmtDate(task.exp_end_date) }}</template>
-          </span>
-          <div class="u-mini-gantt" title="Semana actual">
-            <div
-              v-for="(d, i) in weekDays"
-              :key="i"
-              class="u-mini-cell"
-              :class="{
-                active: taskSpansDay(task, d.iso),
-                today: d.isToday,
-              }"
-            />
+          <div class="u-card-head">
+            <GripVerticalIcon class="u-grip" :size="13" />
+            <span class="u-card-title">{{ task.subject }}</span>
+          </div>
+          <div class="u-card-meta">
+            <span class="u-chip u-chip-priority">
+              {{ PRIORITY_LABEL_ES[task.priority] || task.priority || 'Sin prioridad' }}
+            </span>
+            <span v-if="task.exp_end_date" class="u-chip u-chip-date">
+              {{ fmtDate(task.exp_end_date) }}
+            </span>
+            <span v-else class="u-chip u-chip-empty">Sin fecha</span>
           </div>
           <select
             class="u-assign-select"
             :disabled="saving"
+            @click.stop
             @change="quickAssign(task, $event.target.value); $event.target.value = ''"
           >
             <option value="">Asignar a…</option>
@@ -146,7 +147,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { ChevronRightIcon } from "lucide-vue-next";
+import { ChevronRightIcon, GripVerticalIcon } from "lucide-vue-next";
 import LoadingSpinner from "../components/base/LoadingSpinner.vue";
 import UserAvatar from "../components/base/UserAvatar.vue";
 import {
@@ -164,6 +165,10 @@ const ROW_PAD  = 6;  // top/bottom padding inside each user row
 
 // ── Priority colors (matches bar colors) ──────────────────────────────────────
 const PRIORITY_BAR_COLOR = { Urgent: "#dc2626", High: "#d97706", Medium: "var(--tf-primary)", Low: "#6b7280" };
+const PRIORITY_LABEL_ES = { Urgent: "Urgente", High: "Alta", Medium: "Media", Low: "Baja" };
+
+// Synthetic row used when dragging from the unassigned panel
+const panelRow = { key: "__panel__", email: null, label: "Sin asignar" };
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const allTasks      = ref([]);
@@ -567,6 +572,7 @@ onMounted(load);
   border-radius: 10px;
   overflow: hidden;
   background: var(--tf-surface);
+  margin-bottom: 12px;
 }
 
 .unassigned-toggle {
@@ -574,7 +580,7 @@ onMounted(load);
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 8px 12px;
   background: transparent;
   border: none;
   border-bottom: 1px solid transparent;
@@ -583,8 +589,8 @@ onMounted(load);
   font-family: inherit;
   transition: background 120ms;
 }
+.unassigned-panel:not(.collapsed) .unassigned-toggle { border-bottom-color: var(--tf-border); }
 .unassigned-toggle:hover { background: var(--tf-hover-bg); }
-.unassigned-toggle:has(+ .unassigned-list) { border-bottom-color: var(--tf-border); }
 
 .toggle-chevron {
   color: var(--tf-text-muted);
@@ -612,97 +618,114 @@ onMounted(load);
   margin-left: auto;
   font-size: 11px;
   color: var(--tf-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.unassigned-list {
-  max-height: 310px;
-  overflow-y: auto;
+/* Horizontal scrolling strip — much shorter than vertical list */
+.unassigned-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
 }
+.unassigned-strip::-webkit-scrollbar { height: 8px; }
+.unassigned-strip::-webkit-scrollbar-track { background: transparent; }
+.unassigned-strip::-webkit-scrollbar-thumb { background: var(--tf-border); border-radius: 4px; }
 
 .unassigned-empty {
-  padding: 16px 18px;
+  padding: 14px 4px;
   font-size: 13px;
   color: var(--tf-text-muted);
   font-style: italic;
 }
 
-.unassigned-row {
+/* Individual unassigned task card — draggable to assigned-user rows */
+.u-card {
+  flex: 0 0 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid var(--tf-border);
+  border-left: 3px solid var(--tf-primary);
+  border-radius: 8px;
+  background: var(--tf-bg);
+  cursor: grab;
+  user-select: none;
+  scroll-snap-align: start;
+  transition: box-shadow 120ms, transform 120ms, border-color 120ms;
+}
+.u-card:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .12);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--tf-primary) 40%, var(--tf-border));
+}
+.u-card:active { cursor: grabbing; }
+.u-card.dragging { opacity: .45; }
+
+.u-card.p-urgent { border-left-color: #dc2626; }
+.u-card.p-high   { border-left-color: #d97706; }
+.u-card.p-medium { border-left-color: var(--tf-primary); }
+.u-card.p-low    { border-left-color: #6b7280; }
+
+.u-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--tf-border);
-  transition: background 100ms;
+  gap: 6px;
 }
-.unassigned-row:last-child { border-bottom: none; }
-.unassigned-row:hover { background: var(--tf-hover-bg); }
-
-.u-priority-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.u-grip {
+  color: var(--tf-text-faint);
   flex-shrink: 0;
 }
-
-.u-name {
+.u-card-title {
   flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--tf-primary);
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tf-text);
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0;
-  font-family: inherit;
-}
-.u-name:hover { text-decoration: underline; }
-
-.u-dates {
-  font-size: 11px;
-  color: var(--tf-text-faint);
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
-.u-mini-gantt {
+.u-card-meta {
   display: flex;
-  gap: 2px;
-  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
-
-.u-mini-cell {
-  width: 18px;
-  height: 14px;
-  border-radius: 3px;
-  background: var(--tf-border);
+.u-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--tf-hover-bg);
+  color: var(--tf-text-muted);
+  white-space: nowrap;
 }
-.u-mini-cell.active {
-  background: var(--tf-primary);
-  opacity: .75;
-}
-.u-mini-cell.today {
-  outline: 2px solid var(--tf-primary);
-  outline-offset: -1px;
-}
-.u-mini-cell.active.today { opacity: 1; }
+.u-card.p-urgent .u-chip-priority { background: color-mix(in srgb, #dc2626 14%, transparent); color: #dc2626; }
+.u-card.p-high   .u-chip-priority { background: color-mix(in srgb, #d97706 16%, transparent); color: #b45309; }
+.u-card.p-medium .u-chip-priority { background: var(--tf-active-bg); color: var(--tf-active-text); }
+.u-card.p-low    .u-chip-priority { background: #f3f4f6; color: #4b5563; }
+.u-chip-date     { background: var(--tf-active-bg); color: var(--tf-active-text); }
+.u-chip-empty    { background: transparent; color: var(--tf-text-faint); border: 1px dashed var(--tf-border); }
 
 .u-assign-select {
-  font-size: 12px;
-  padding: 5px 8px;
+  font-size: 11px;
+  padding: 4px 6px;
   border: 1px solid var(--tf-border);
   border-radius: 6px;
-  background: var(--tf-bg);
+  background: var(--tf-surface);
   color: var(--tf-text);
   cursor: pointer;
-  flex-shrink: 0;
-  max-width: 160px;
   outline: none;
   font-family: inherit;
+  width: 100%;
 }
 .u-assign-select:focus { border-color: var(--tf-primary); }
 .u-assign-select:disabled { opacity: .5; cursor: not-allowed; }
@@ -730,14 +753,8 @@ onMounted(load);
     text-align: center;
   }
 
-  .u-dates,
-  .u-mini-gantt {
-    display: none;
-  }
-
-  .u-assign-select {
-    max-width: 100%;
-    width: 100%;
+  .u-card {
+    flex-basis: 200px;
   }
 }
 </style>

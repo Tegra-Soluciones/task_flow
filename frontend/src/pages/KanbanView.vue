@@ -53,9 +53,6 @@
             }"
             @click="goToTask(task.name)"
           >
-            <!-- Cover image -->
-            <img v-if="task.cover_image" :src="task.cover_image" class="card-cover-img" />
-
             <div class="card-inner">
               <!-- Badges row -->
               <div class="card-badges">
@@ -333,6 +330,7 @@ async function createInColumn(status) {
   overflow: hidden;
   cursor: pointer;
   position: relative;
+  flex-shrink: 0;            /* never compress; let the column scroll instead */
   transition: box-shadow 140ms, transform 140ms;
 }
 .kanban-card:hover {
@@ -346,14 +344,17 @@ async function createInColumn(status) {
 .kanban-card.due-soon {
   border-color: color-mix(in srgb, #d97706 26%, var(--tf-border));
 }
-.kanban-card.compact .card-cover-img { height: 72px; }
-.kanban-card.compact .card-inner { padding: 8px; }
+.kanban-card.compact .card-inner { padding: 8px 10px; min-height: 70px; }
 .kanban-card.compact .card-title { font-size: 12px; }
 .kanban-card.compact .card-project,
 .kanban-card.compact .card-date { font-size: 10px; }
 
-.card-cover-img { width: 100%; height: 90px; object-fit: cover; display: block; }
-.card-inner { padding: 10px; }
+.card-inner {
+  padding: 10px 12px;
+  min-height: 96px;             /* uniform card height */
+  display: flex;
+  flex-direction: column;
+}
 
 .card-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 5px; }
 .badge-overdue {
@@ -388,7 +389,8 @@ async function createInColumn(status) {
 
 .card-footer {
   display: flex; align-items: center; justify-content: space-between;
-  margin-top: 8px;
+  margin-top: auto;             /* push footer to bottom for uniform layout */
+  padding-top: 8px;
 }
 .card-date {
   display: flex; align-items: center; gap: 3px;

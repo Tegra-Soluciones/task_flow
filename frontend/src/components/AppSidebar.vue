@@ -43,7 +43,7 @@ import { h } from "vue";
 import { useRoute, RouterLink } from "vue-router";
 import { useAppStore } from "../stores/app.js";
 import {
-  LayoutDashboardIcon, CheckSquareIcon, ListIcon,
+  HomeIcon, LayoutDashboardIcon, CheckSquareIcon, ListIcon,
   ColumnsIcon, BarChart2Icon, CalendarIcon,
   FolderOpenIcon, SettingsIcon,
 } from "lucide-vue-next";
@@ -89,9 +89,10 @@ const SidebarItem = {
 const appStore = useAppStore();
 
 const taskItems = [
-  { name: "Dashboard",  label: "Tablero",          to: "/dashboard", icon: LayoutDashboardIcon },
-  { name: "MyTasks",    label: "Mis Tareas",        to: "/my-tasks",  icon: CheckSquareIcon },
-  { name: "TaskList",   label: "Todas las Tareas",  to: "/tasks",     icon: ListIcon },
+  { name: "Home",       label: "Inicio",             to: "/home",      icon: HomeIcon },
+  { name: "Dashboard",  label: "Tablero",            to: "/dashboard", icon: LayoutDashboardIcon },
+  { name: "MyTasks",    label: "Mis Tareas",         to: "/my-tasks",  icon: CheckSquareIcon },
+  { name: "TaskList",   label: "Todas las Tareas",   to: "/tasks",     icon: ListIcon },
   { name: "Kanban",     label: "Kanban",             to: "/kanban",    icon: ColumnsIcon },
   { name: "Gantt",      label: "Gantt",              to: "/gantt",     icon: BarChart2Icon },
   { name: "Calendar",   label: "Calendario",         to: "/calendar",  icon: CalendarIcon },
