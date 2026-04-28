@@ -11,6 +11,11 @@ dependencies = [
     # "frappe~=15.0.0"  # managed by bench
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["task_flow*"]
+exclude = ["frontend*"]
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"

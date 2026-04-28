@@ -2,11 +2,127 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Task Flow CSS variables ─────────────────────────────────────────────── */
 :root {
-  font-family: Inter, system-ui, sans-serif;
+  --tf-navbar-h: 48px;
+  --tf-sidebar-w: 240px;
+  --tf-sidebar-w-collapsed: 56px;
+
+  /* Light */
+  --tf-bg:            #f4f5f7;
+  --tf-surface:       #ffffff;
+  --tf-border:        #e2e8f0;
+  --tf-text:          #1f2937;
+  --tf-text-muted:    #6b7280;
+  --tf-text-faint:    #9ca3af;
+  --tf-primary:       #4f46e5;
+  --tf-primary-hover: #4338ca;
+  --tf-active-bg:     #ede9fe;
+  --tf-active-text:   #4338ca;
+  --tf-hover-bg:      #f3f4f6;
+  --tf-shadow:        0 1px 3px 0 rgba(0,0,0,.08), 0 1px 2px -1px rgba(0,0,0,.05);
+
+  /* Status palette */
+  --tf-open:      #2563eb;
+  --tf-working:   #7c3aed;
+  --tf-review:    #d97706;
+  --tf-completed: #16a34a;
+  --tf-cancelled: #6b7280;
+  --tf-overdue:   #dc2626;
+
+  /* Priority palette */
+  --tf-urgent: #dc2626;
+  --tf-high:   #d97706;
+  --tf-medium: #2563eb;
+  --tf-low:    #6b7280;
 }
 
+.dark {
+  --tf-bg:            #0f172a;
+  --tf-surface:       #1e293b;
+  --tf-border:        #334155;
+  --tf-text:          #e2e8f0;
+  --tf-text-muted:    #94a3b8;
+  --tf-text-faint:    #64748b;
+  --tf-primary:       #818cf8;
+  --tf-primary-hover: #a5b4fc;
+  --tf-active-bg:     #1e1b4b;
+  --tf-active-text:   #a5b4fc;
+  --tf-hover-bg:      #334155;
+  --tf-shadow:        0 1px 3px 0 rgba(0,0,0,.3), 0 1px 2px -1px rgba(0,0,0,.2);
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+
 body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--tf-bg);
+  color: var(--tf-text);
+  font-size: 14px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* ── Shared page utilities (global so they survive CSS chunk cache issues) ── */
+.page-title {
   margin: 0;
-  background-color: #f8fafc;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tf-text);
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.center-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-primary {
+  padding: 7px 14px;
+  background: var(--tf-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms;
+  white-space: nowrap;
+}
+.btn-primary:hover:not(:disabled) { background: var(--tf-primary-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--tf-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tf-text-faint); }
+
+@media (max-width: 900px) {
+  .page-header {
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .page-title {
+    font-size: 17px;
+  }
 }

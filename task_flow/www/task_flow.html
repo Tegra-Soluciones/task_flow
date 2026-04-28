@@ -2,29 +2,29 @@
 title: Task Flow
 no_cache: 1
 ---
-{%- block navbar -%}{%- endblock -%}
-{%- block header -%}{%- endblock -%}
 
-{%- block content -%}
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Task Flow</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/task_flow/images/logo.svg" />
-    <link rel="stylesheet" href="/assets/task_flow/task_flow/style.css" />
-  </head>
-  <body>
-    <script>
-      window.csrf_token = "{{ frappe.session.csrf_token }}";
-      window.frappe_version = "{{ frappe.__version__ }}";
-      window.site_name = "{{ frappe.local.site }}";
-    </script>
-    <div id="app"></div>
-    <script type="module" src="/assets/task_flow/task_flow/main.js"></script>
-  </body>
-</html>
-{%- endblock -%}
+{%- block head_include %}
+<link rel="icon" type="image/svg+xml" href="/assets/task_flow/images/logo.svg" />
+<link rel="stylesheet" href="/assets/task_flow/task_flow/index.css" />
+<script>
+  window.frappe = window.frappe || {};
+  window.frappe.csrf_token = "{{ csrf_token }}";
+  window.csrf_token = "{{ csrf_token }}";
+  window.tf_boot_user = {{ boot_user_json | safe }};
+  window.site_name = "{{ site_name }}";
+</script>
+{%- endblock %}
+
+{%- block navbar -%}{%- endblock -%}
 
 {%- block footer -%}{%- endblock -%}
+
+{%- block base_scripts -%}{%- endblock -%}
+
+{%- block content %}
+<div id="app"></div>
+{%- endblock %}
+
+{%- block script %}
+<script type="module" src="/assets/task_flow/task_flow/main.js"></script>
+{%- endblock %}
