@@ -19,8 +19,64 @@
       <LoadingSpinner :size="36" label="Cargando tareas…" />
     </div>
 
+    <!-- ── Unassigned tasks panel ─────────────────────────────────────────── -->
+    <div v-if="!loading" class="unassigned-panel">
+      <button class="unassigned-toggle" @click="showUnassigned = !showUnassigned">
+        <ChevronRightIcon
+          class="toggle-chevron"
+          :class="{ rotated: showUnassigned }"
+          :size="14"
+        />
+        <span class="toggle-label">Sin asignar</span>
+        <span class="unassigned-badge">{{ unassignedTasks.length }}</span>
+        <span class="toggle-hint">{{ showUnassigned ? 'Ocultar' : 'Mostrar' }}</span>
+      </button>
+
+      <div v-if="showUnassigned" class="unassigned-list">
+        <div v-if="!unassignedTasks.length" class="unassigned-empty">
+          No hay tareas sin asignar.
+        </div>
+        <div
+          v-for="task in unassignedTasks"
+          :key="task.name"
+          class="unassigned-row"
+        >
+          <span
+            class="u-priority-dot"
+            :style="{ background: PRIORITY_BAR_COLOR[task.priority] || 'var(--tf-primary)' }"
+          />
+          <button class="u-name" @click="goToTask(task.name)">{{ task.subject }}</button>
+          <span class="u-dates">
+            {{ task.exp_start_date ? fmtDate(task.exp_start_date) : '—' }}
+            <template v-if="task.exp_end_date"> → {{ fmtDate(task.exp_end_date) }}</template>
+          </span>
+          <div class="u-mini-gantt" title="Semana actual">
+            <div
+              v-for="(d, i) in weekDays"
+              :key="i"
+              class="u-mini-cell"
+              :class="{
+                active: taskSpansDay(task, d.iso),
+                today: d.isToday,
+              }"
+            />
+          </div>
+          <select
+            class="u-assign-select"
+            :disabled="saving"
+            @change="quickAssign(task, $event.target.value); $event.target.value = ''"
+          >
+            <option value="">Asignar a…</option>
+            <option v-for="u in systemUsers" :key="u.name" :value="u.name">
+              {{ u.full_name || u.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Grid ──────────────────────────────────────────────────────────── -->
-    <div v-else class="gantt-scroll">
+    <div v-if="!loading" class="gantt-scroll">
 
       <!-- Sticky column header -->
       <div class="g-head">
@@ -90,10 +146,12 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { ChevronRightIcon } from "lucide-vue-next";
 import LoadingSpinner from "../components/base/LoadingSpinner.vue";
 import UserAvatar from "../components/base/UserAvatar.vue";
 import {
-  getTasks, setTaskFields, addAssignment, removeAssignment, getUser, isOverdue,
+  getTasks, setTaskFields, addAssignment, removeAssignment,
+  getUser, getSystemUsers, fmtDate, isOverdue,
 } from "../api/index.js";
 
 const router = useRouter();
@@ -104,14 +162,19 @@ const TASK_H  = 30;  // px per task bar
 const TASK_GAP = 4;  // gap between stacked bars in same row
 const ROW_PAD  = 6;  // top/bottom padding inside each user row
 
+// ── Priority colors (matches bar colors) ──────────────────────────────────────
+const PRIORITY_BAR_COLOR = { Urgent: "#dc2626", High: "#d97706", Medium: "var(--tf-primary)", Low: "#6b7280" };
+
 // ── State ─────────────────────────────────────────────────────────────────────
-const allTasks   = ref([]);
-const loading    = ref(true);
-const saving     = ref(false);
-const userCache  = ref({});
-const weekOffset = ref(0);
-const dragging   = ref(null);   // { task, fromRow }
-const dropTarget = ref(null);   // { rowKey, di }
+const allTasks      = ref([]);
+const loading       = ref(true);
+const saving        = ref(false);
+const userCache     = ref({});
+const systemUsers   = ref([]);
+const weekOffset    = ref(0);
+const dragging      = ref(null);    // { task, fromRow }
+const dropTarget    = ref(null);    // { rowKey, di }
+const showUnassigned = ref(true);
 
 // ── Week dates ────────────────────────────────────────────────────────────────
 const weekStart = computed(() => {
@@ -152,23 +215,13 @@ const weekRangeLabel = computed(() => {
     : `${a.num} ${a.month} – ${b.num} ${b.month}`;
 });
 
-// ── User rows ─────────────────────────────────────────────────────────────────
-// Tasks appear in EACH row of their assignees (or in unassigned if no assignees).
+// ── User rows (assigned only — unassigned shown in panel above) ───────────────
 const userRows = computed(() => {
   const tasks = allTasks.value;
   const emails = new Set();
   tasks.forEach(t => (t._assignees || []).forEach(e => emails.add(e)));
 
-  const rows = [
-    {
-      key:    "__unassigned__",
-      email:  null,
-      label:  "Sin asignar",
-      avatar: null,
-      tasks:  tasks.filter(t => !(t._assignees || []).length),
-    },
-  ];
-
+  const rows = [];
   for (const email of emails) {
     const info = userCache.value[email] || {};
     rows.push({
@@ -179,9 +232,13 @@ const userRows = computed(() => {
       tasks:  tasks.filter(t => (t._assignees || []).includes(email)),
     });
   }
-
   return rows;
 });
+
+// ── Unassigned tasks ──────────────────────────────────────────────────────────
+const unassignedTasks = computed(() =>
+  allTasks.value.filter(t => !(t._assignees || []).length)
+);
 
 // ── Bar geometry ──────────────────────────────────────────────────────────────
 function dayDiff(a, b) {
@@ -279,14 +336,37 @@ function goToTask(name) {
   router.push({ name: "TaskDetail", params: { name } });
 }
 
+// ── Unassigned helpers ────────────────────────────────────────────────────────
+function taskSpansDay(task, iso) {
+  const s = task.exp_start_date?.slice(0, 10);
+  const e = task.exp_end_date?.slice(0, 10);
+  if (!s && !e) return false;
+  const from = s || e;
+  const to   = e || s;
+  return iso >= from && iso <= to;
+}
+
+async function quickAssign(task, email) {
+  if (!email || saving.value) return;
+  saving.value = true;
+  try {
+    await addAssignment(task.name, email);
+    await load();
+  } finally {
+    saving.value = false;
+  }
+}
+
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function load() {
   loading.value = true;
   try {
-    const tasks = await getTasks([
-      ["status", "not in", ["Cancelled", "Template"]],
+    const [tasks, users] = await Promise.all([
+      getTasks([["status", "not in", ["Cancelled", "Template"]]]),
+      systemUsers.value.length ? Promise.resolve(systemUsers.value) : getSystemUsers(),
     ]);
     allTasks.value = tasks;
+    if (users !== systemUsers.value) systemUsers.value = users;
 
     // Prefetch user info for all assignees
     const emails = new Set(tasks.flatMap(t => t._assignees || []));
@@ -479,6 +559,153 @@ onMounted(load);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* ── Unassigned panel ─────────────────────────────────────────────────────── */
+.unassigned-panel {
+  flex-shrink: 0;
+  border: 1px solid var(--tf-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--tf-surface);
+}
+
+.unassigned-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 120ms;
+}
+.unassigned-toggle:hover { background: var(--tf-hover-bg); }
+.unassigned-toggle:has(+ .unassigned-list) { border-bottom-color: var(--tf-border); }
+
+.toggle-chevron {
+  color: var(--tf-text-muted);
+  flex-shrink: 0;
+  transition: transform 200ms;
+}
+.toggle-chevron.rotated { transform: rotate(90deg); }
+
+.toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tf-text);
+}
+
+.unassigned-badge {
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #d97706 16%, transparent);
+  color: #b45309;
+  font-weight: 700;
+}
+
+.toggle-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--tf-text-faint);
+}
+
+.unassigned-list {
+  max-height: 310px;
+  overflow-y: auto;
+}
+
+.unassigned-empty {
+  padding: 16px 18px;
+  font-size: 13px;
+  color: var(--tf-text-muted);
+  font-style: italic;
+}
+
+.unassigned-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--tf-border);
+  transition: background 100ms;
+}
+.unassigned-row:last-child { border-bottom: none; }
+.unassigned-row:hover { background: var(--tf-hover-bg); }
+
+.u-priority-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.u-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tf-primary);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  font-family: inherit;
+}
+.u-name:hover { text-decoration: underline; }
+
+.u-dates {
+  font-size: 11px;
+  color: var(--tf-text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.u-mini-gantt {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.u-mini-cell {
+  width: 18px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--tf-border);
+}
+.u-mini-cell.active {
+  background: var(--tf-primary);
+  opacity: .75;
+}
+.u-mini-cell.today {
+  outline: 2px solid var(--tf-primary);
+  outline-offset: -1px;
+}
+.u-mini-cell.active.today { opacity: 1; }
+
+.u-assign-select {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--tf-border);
+  border-radius: 6px;
+  background: var(--tf-bg);
+  color: var(--tf-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  max-width: 160px;
+  outline: none;
+  font-family: inherit;
+}
+.u-assign-select:focus { border-color: var(--tf-primary); }
+.u-assign-select:disabled { opacity: .5; cursor: not-allowed; }
+
 @media (max-width: 700px) {
   .week-controls {
     width: 100%;
@@ -500,6 +727,16 @@ onMounted(load);
   .saving-badge {
     width: 100%;
     text-align: center;
+  }
+
+  .u-dates,
+  .u-mini-gantt {
+    display: none;
+  }
+
+  .u-assign-select {
+    max-width: 100%;
+    width: 100%;
   }
 }
 </style>

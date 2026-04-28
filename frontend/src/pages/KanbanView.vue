@@ -268,7 +268,7 @@ async function createInColumn(status) {
 </script>
 
 <style scoped>
-.page-kanban { height: 100%; display: flex; flex-direction: column; }
+.page-kanban { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -281,9 +281,12 @@ async function createInColumn(status) {
 /* Board */
 .kanban-board {
   flex: 1;
+  min-height: 0;          /* allow flex child to shrink so columns can scroll */
   display: flex;
+  align-items: stretch;   /* columns fill the full board height */
   gap: 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 8px;
 }
 
@@ -295,7 +298,7 @@ async function createInColumn(status) {
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  max-height: 100%;
+  overflow: hidden;        /* clip so border-radius shows correctly */
 }
 
 .col-header {
@@ -314,12 +317,12 @@ async function createInColumn(status) {
 /* Cards container */
 .col-cards {
   flex: 1;
+  min-height: 0;           /* key: allows this flex child to scroll */
   overflow-y: auto;
-  padding: 0 8px;
+  padding: 0 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 80px;
 }
 
 /* Card */
