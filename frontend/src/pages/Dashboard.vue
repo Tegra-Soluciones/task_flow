@@ -97,7 +97,7 @@ import EmptyState from "../components/base/EmptyState.vue";
 import { useFiltersStore } from "../stores/filters.js";
 import { usePrefsStore } from "../stores/prefs.js";
 import {
-  getTasks, setTaskField, getUser,
+  getTasksWithPreview, setTaskField, getUser,
   STATUS_COLOR, STATUS_LABEL, todayISO,
 } from "../api/index.js";
 
@@ -186,7 +186,7 @@ async function load() {
       f.push(["exp_end_date", "<", todayISO()]);
       f.push(["status", "not in", ["Completed", "Cancelled"]]);
     }
-    allTasks.value = await getTasks(f);
+    allTasks.value = await getTasksWithPreview(f);
     await prefetchUsersForTasks(allTasks.value);
   } finally {
     loading.value = false;

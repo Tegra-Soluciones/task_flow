@@ -34,6 +34,42 @@ export async function getTasks(filters = [], { limit = 500, orderBy = "exp_end_d
 	return (Array.isArray(res) ? res : []).map(normalizeTask);
 }
 
+/**
+ * Same as getTasks but returns a description_preview field (HTML stripped,
+ * truncated to ~140 chars). Routed through a custom whitelist endpoint
+ * because frappe.client.get_list blocks long-text fields.
+ */
+export async function getTasksWithPreview(filters = [], { limit = 500, orderBy = "exp_end_date asc" } = {}) {
+	const res = await frappeRequest({
+		url: "/api/method/task_flow.api.get_tasks_with_preview",
+		params: {
+			filters: JSON.stringify(filters),
+			limit,
+			order_by: orderBy,
+		},
+	});
+	return (Array.isArray(res) ? res : []).map(normalizeTask);
+}
+
+export async function bulkUpdateTasks(taskNames, fields) {
+	return frappeRequest({
+		url: "/api/method/task_flow.api.bulk_update_tasks",
+		method: "POST",
+		params: {
+			task_names: JSON.stringify(taskNames),
+			fields:     JSON.stringify(fields),
+		},
+	});
+}
+
+export async function bulkDeleteTasks(taskNames) {
+	return frappeRequest({
+		url: "/api/method/task_flow.api.bulk_delete_tasks",
+		method: "POST",
+		params: { task_names: JSON.stringify(taskNames) },
+	});
+}
+
 export async function getTask(name) {
 	const res = await frappeRequest({
 		url: "/api/method/frappe.client.get",

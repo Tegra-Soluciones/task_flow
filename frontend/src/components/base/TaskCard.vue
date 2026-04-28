@@ -43,6 +43,9 @@
       <!-- Title -->
       <h4 class="card-title">{{ task.subject }}</h4>
 
+      <!-- Description preview -->
+      <p v-if="descriptionText" class="card-desc">{{ descriptionText }}</p>
+
       <!-- Footer: due date + assignees + watchers -->
       <div class="card-footer">
         <div class="card-meta">
@@ -107,6 +110,18 @@ const assigneeProfiles = computed(() =>
 const isOverdueState = computed(() => isOverdue(props.task));
 const isDueTodayState = computed(() => isDueToday(props.task));
 const isDueSoonState = computed(() => isDueSoon(props.task, props.dueSoonDays));
+
+const DESC_LIMIT_NORMAL = 110;
+const DESC_LIMIT_COMPACT = 70;
+
+const descriptionText = computed(() => {
+  // The Dashboard uses getTasksWithPreview which returns description_preview
+  // (already plain text + server-truncated). Fall back to nothing otherwise.
+  const raw = (props.task.description_preview || "").trim();
+  if (!raw) return "";
+  const limit = props.compact ? DESC_LIMIT_COMPACT : DESC_LIMIT_NORMAL;
+  return raw.length > limit ? raw.slice(0, limit).trimEnd() + "…" : raw;
+});
 </script>
 
 <style scoped>
@@ -208,7 +223,7 @@ const isDueSoonState = computed(() => isDueSoon(props.task, props.dueSoonDays));
 
 /* Title */
 .card-title {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-size: 13px;
   font-weight: 600;
   color: var(--tf-text);
@@ -217,6 +232,23 @@ const isDueSoonState = computed(() => isDueSoon(props.task, props.dueSoonDays));
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Description preview */
+.card-desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--tf-text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-card.compact .card-desc {
+  font-size: 11px;
+  margin-bottom: 8px;
+  -webkit-line-clamp: 1;
 }
 
 /* Footer */

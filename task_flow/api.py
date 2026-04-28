@@ -2,6 +2,112 @@ import frappe
 import json
 from frappe import _
 from frappe.desk.form import assign_to as frappe_assign_to
+from frappe.utils import strip_html
+
+
+# ── Task list with description preview ────────────────────────────────────────
+
+@frappe.whitelist()
+def get_tasks_with_preview(filters="[]", limit=500, order_by="exp_end_date asc"):
+	"""
+	Like frappe.client.get_list for Task, but includes a short, plain-text
+	description preview (HTML stripped, truncated to ~140 chars).
+
+	get_list blocks long-text fields over REST; we use frappe.get_all here
+	(server-side) to fetch the description, then strip + truncate before
+	sending it to the client.
+	"""
+	if isinstance(filters, str):
+		try:
+			filters = json.loads(filters)
+		except Exception:
+			filters = []
+
+	tasks = frappe.get_all(
+		"Task",
+		filters=filters,
+		fields=[
+			"name", "subject", "status", "priority", "project",
+			"exp_start_date", "exp_end_date", "progress", "color",
+			"_assign", "cover_image", "description", "modified",
+		],
+		limit=limit,
+		order_by=order_by,
+	)
+
+	for t in tasks:
+		raw = t.get("description") or ""
+		if raw:
+			text = strip_html(raw).strip()
+			t["description_preview"] = (text[:140] + "…") if len(text) > 140 else text
+		else:
+			t["description_preview"] = ""
+		# Don't ship the full HTML body — the preview is enough for cards
+		t.pop("description", None)
+
+	return tasks
+
+
+# ── Bulk task operations ──────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def bulk_update_tasks(task_names, fields):
+	"""
+	Apply the same field updates to many Task documents in one request.
+
+	Args:
+		task_names: list (or JSON-encoded list) of Task names
+		fields: dict (or JSON-encoded dict) of field → value pairs
+
+	Returns: { "updated": [...names], "errors": [{name, message}] }
+	"""
+	if isinstance(task_names, str):
+		task_names = json.loads(task_names)
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+
+	if not isinstance(task_names, list) or not task_names:
+		frappe.throw(_("No se proporcionaron tareas"))
+	if not isinstance(fields, dict) or not fields:
+		frappe.throw(_("No se proporcionaron campos a actualizar"))
+
+	updated = []
+	errors = []
+
+	for name in task_names:
+		try:
+			doc = frappe.get_doc("Task", name)
+			doc.check_permission("write")
+			for k, v in fields.items():
+				doc.set(k, v)
+			doc.save()
+			updated.append(name)
+		except Exception as e:
+			errors.append({"name": name, "message": str(e)})
+
+	frappe.db.commit()
+	return {"updated": updated, "errors": errors}
+
+
+@frappe.whitelist()
+def bulk_delete_tasks(task_names):
+	"""Delete multiple Task documents. Returns deleted names + any errors."""
+	if isinstance(task_names, str):
+		task_names = json.loads(task_names)
+	if not isinstance(task_names, list) or not task_names:
+		frappe.throw(_("No se proporcionaron tareas"))
+
+	deleted = []
+	errors = []
+	for name in task_names:
+		try:
+			frappe.delete_doc("Task", name)
+			deleted.append(name)
+		except Exception as e:
+			errors.append({"name": name, "message": str(e)})
+
+	frappe.db.commit()
+	return {"deleted": deleted, "errors": errors}
 
 
 # ── User info ──────────────────────────────────────────────────────────────────
