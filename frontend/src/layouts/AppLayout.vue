@@ -80,9 +80,12 @@ watch(() => route.fullPath, () => {
 
 .app-content {
   flex: 1;
+  min-height: 0;           /* allow shrinking so children can constrain height */
   overflow-y: auto;
   padding: 24px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-sidebar-backdrop {

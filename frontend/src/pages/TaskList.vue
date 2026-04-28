@@ -263,7 +263,7 @@ function onTaskCreated(task) {
 </script>
 
 <style scoped>
-.page-task-list { height: 100%; display: flex; flex-direction: column; }
+.page-task-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 .page-header {
   display: flex; align-items: center; justify-content: space-between;

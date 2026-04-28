@@ -268,7 +268,7 @@ async function createInColumn(status) {
 </script>
 
 <style scoped>
-.page-kanban { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.page-kanban { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
