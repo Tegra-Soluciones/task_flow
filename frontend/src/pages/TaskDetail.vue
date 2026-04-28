@@ -216,13 +216,42 @@
           </SectionBlock>
 
           <SectionBlock title="Descripción">
-            <textarea
-              v-model="editedTask.description"
-              class="desc-textarea"
-              placeholder="Agregar descripción…"
-              :disabled="!canEdit"
-              @blur="saveField('description', editedTask.description)"
+            <!-- Edit mode: textarea with raw HTML -->
+            <div v-if="editingDesc" class="desc-edit-wrap">
+              <textarea
+                ref="descTextareaRef"
+                v-model="editedTask.description"
+                class="desc-textarea"
+                placeholder="Escribe la descripción (admite HTML)…"
+                @keydown.esc="cancelDescriptionEdit"
+              />
+              <div class="desc-edit-actions">
+                <span class="desc-edit-hint">Esc para cancelar</span>
+                <button class="btn-cancel" @click="cancelDescriptionEdit">Cancelar</button>
+                <button class="assignee-add-btn" :disabled="descSaving" @click="saveDescription">
+                  {{ descSaving ? "Guardando…" : "Guardar" }}
+                </button>
+              </div>
+            </div>
+
+            <!-- View mode: rendered HTML, click to edit -->
+            <div
+              v-else-if="task.description"
+              class="desc-rendered"
+              :class="{ 'is-editable': canEdit }"
+              :title="canEdit ? 'Click para editar' : ''"
+              v-html="task.description"
+              @click="canEdit && enterDescriptionEdit()"
             />
+
+            <button
+              v-else
+              class="desc-empty"
+              :disabled="!canEdit"
+              @click="enterDescriptionEdit"
+            >
+              + Agregar descripción
+            </button>
           </SectionBlock>
 
           <SectionBlock :title="`Subtareas (${subtasks.length})`">
@@ -419,7 +448,7 @@
 </template>
 
 <script setup>
-import { computed, h, onMounted, ref, watch } from "vue";
+import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   CheckIcon,
@@ -500,6 +529,30 @@ const showCoverEditor = ref(false);
 const coverSaving = ref(false);
 const coverError = ref("");
 const statusSaving = ref(false);
+const editingDesc = ref(false);
+const descSaving = ref(false);
+const descTextareaRef = ref(null);
+const descBeforeEdit = ref("");
+
+function enterDescriptionEdit() {
+  if (!canEdit.value) return;
+  descBeforeEdit.value = task.value?.description ?? "";
+  editingDesc.value = true;
+  nextTick(() => descTextareaRef.value?.focus());
+}
+
+function cancelDescriptionEdit() {
+  editedTask.value.description = descBeforeEdit.value;
+  editingDesc.value = false;
+}
+
+async function saveDescription() {
+  if (descSaving.value) return;
+  descSaving.value = true;
+  const ok = await saveField("description", editedTask.value.description ?? "");
+  descSaving.value = false;
+  if (ok) editingDesc.value = false;
+}
 const newComment = ref("");
 const newSubject = ref("");
 const addAssigneeEmail = ref("");
@@ -1163,6 +1216,103 @@ watch(taskName, loadTaskPage);
   font-family: inherit;
   resize: vertical;
   outline: none;
+}
+
+/* ── Description rendered view (HTML safe-render) ─────────────────── */
+.desc-rendered {
+  padding: 12px 14px;
+  border: 1px solid var(--tf-border);
+  border-radius: 14px;
+  background: var(--tf-bg);
+  color: var(--tf-text);
+  font-size: 13px;
+  line-height: 1.55;
+  min-height: 56px;
+  transition: border-color 120ms, background 120ms;
+}
+.desc-rendered.is-editable { cursor: text; }
+.desc-rendered.is-editable:hover {
+  border-color: color-mix(in srgb, var(--tf-primary) 35%, var(--tf-border));
+  background: color-mix(in srgb, var(--tf-bg) 92%, var(--tf-active-bg) 8%);
+}
+
+/* Style the HTML coming from Quill / rich text */
+.desc-rendered :deep(p) { margin: 0 0 8px; }
+.desc-rendered :deep(p:last-child) { margin-bottom: 0; }
+.desc-rendered :deep(ul),
+.desc-rendered :deep(ol) { margin: 0 0 8px; padding-left: 22px; }
+.desc-rendered :deep(li) { margin: 2px 0; }
+.desc-rendered :deep(strong) { font-weight: 600; color: var(--tf-text); }
+.desc-rendered :deep(a) { color: var(--tf-primary); text-decoration: underline; }
+.desc-rendered :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 4px 0;
+  display: block;
+}
+.desc-rendered :deep(blockquote) {
+  margin: 6px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--tf-border);
+  color: var(--tf-text-muted);
+  font-style: italic;
+}
+.desc-rendered :deep(code) {
+  background: var(--tf-hover-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: .92em;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+}
+.desc-rendered :deep(pre) {
+  background: var(--tf-hover-bg);
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+/* Hide Quill's internal wrapper styling so it blends in */
+.desc-rendered :deep(.ql-editor) {
+  padding: 0;
+  min-height: 0;
+}
+
+.desc-empty {
+  width: 100%;
+  padding: 14px;
+  border: 1px dashed var(--tf-border);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--tf-text-faint);
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms, background 120ms;
+  font-family: inherit;
+}
+.desc-empty:hover:not(:disabled) {
+  border-color: var(--tf-primary);
+  color: var(--tf-primary);
+  background: var(--tf-active-bg);
+}
+.desc-empty:disabled { opacity: .55; cursor: not-allowed; }
+
+.desc-edit-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.desc-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.desc-edit-hint {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--tf-text-faint);
 }
 
 .assignee-list {
